@@ -1,0 +1,1091 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе}
+\end{center}
+\begin{center}
+\textbf{\Large«Линейная фильтрация изображений (блочное разбиение). Ядро Гаусса 3x3»}
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студентка группы 381908-1 \\ Мясникова В.С. \\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2022 \end{center}
+\end{titlepage}
+
+% Содержание
+\setcounter{page}{2}
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Бывают ситуации, когда необходимо повысить качество изображения посредством удаления шумов или, наоборот, сделать размытие всего изображения или его части. Для решения этих задач на практике применяются различные цифровые фильтры. Фильт Гаусса - один из них.
+\par За счет того, что фильт Гаусса подразумевает попиксельную обработку изображения, вычисления могут производиться параллельно. Это ускоряет процесс обработки.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В рамках лабораторной работы необходимо реализовать последовательный и 3 параллельных метода по использованию фильтра Гаусса. Параллельные методы должны быть реализованы с использованием OpenMP, Intel TBB и std::thread. Также требуется продемонстрировать визуализацию результатов работы методов и сравнить время выполнения каждого из них.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Алгоритм фильтра Гаусса содержит в себе следующую последовательность шагов:
+\begin{enumerate}
+\item Ядро Гаусса создается по формуле: {\LARGE $$G(x,y) = \frac{1}{2\pi\sigma^2} * e^{-\frac{x^2 + y^2}{2\sigma^2}}$$ }
+где $x$, $y$ - координаты в ядре Гаусса, $\sigma$ - коэффициент размытия.
+\item Создание матрицы пикселей.
+\item Вычисление всех пикселей с использованием ядра Гаусса 3х3.
+\item Преобразование результата в изображение.
+\end{enumerate}
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Ядро Гаусса расчитывается последовательно. Это сделано для того, чтобы при распараллеливании остальной части программы общее время работы не увеличилось.
+\par Участок программы, к которому применяется распараллеливание - применение ядра Гаусса к пикселю изображения. 
+\par \textbf {OpenMP.} Объявляется параллельная секция. Потом используемая библиотека распределяет элементы матрицы между потоками.
+\par \textbf {Intel TBB.} Объявляется параллельная секция. Потом используемая библиотека распределяет элементы матрицы между потоками.
+\par \textbf {std::thread.} Здесь распараллеливание не происходит автоматически. Для того, чтобы распределить элементы матрицы между потоками сначала необходимо расчитать количество элементов, которое будет передано потокам для обработки. В случае, если количество элементов не распределяется между потоками равномерно, то первые потоки получат больше элементов, чем остальные.
+\newpage
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Каждая программа состоит из заголовочного файла gaussian\_block\_filtering.h и файлов исходного кода gaussian\_block\_filtering.cpp и main.cpp.
+\par В файле .h объявлены прототипы функций последовательного и параллельных методов, создания ядра Гаусса и матрицы.
+\par Создание матрицы матрицы:
+\begin{lstlisting}
+std::vector<int> CreateMatrix(int row, int column);
+\end{lstlisting}
+Принимает число строк и число столбцов. Возращает вектор элементов.
+\par Создание ядра Гаусса:
+\begin{lstlisting}
+std::vector<int> CreateKernel(double sigma);
+\end{lstlisting}
+\par Последовательный метод:
+\begin{lstlisting}
+std::vector<int> GaussFilterSeq(std::vector<int> matrix,
+           std::vector<int> kernel, int row, int column);
+\end{lstlisting}
+\par Параллельный метод на основе OpenMP:
+\begin{lstlisting}
+std::vector<int> GaussFilterParallel(std::vector<int> matrix,
+           std::vector<int> kernel, int row, int column);
+\end{lstlisting}
+\par Параллельный метод на основе Intel TBB:
+\begin{lstlisting}
+std::vector<int> GaussFilterParallel(std::vector<int> matrix,
+           std::vector<int> kernel, int row, int column);
+\end{lstlisting}
+\par Параллельный метод на основе std::thread:
+\begin{lstlisting}
+std::vector<int> GaussFilterParallel(std::vector<int> matrix,
+           std::vector<int> kernel, int row, int column);
+\end{lstlisting}
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+\par Для проверки программы на корректность работы были созданы тесты на основе модульной системы Google Test. Тесты, которые были реализованы:
+\begin{enumerate}
+\item Создание ядра Гаусса с различными коэффициентами размытия.
+\item Создание матрицы пикселей различного размера.
+\item Применение последовательного алгоритма к матрицам различных размеров.
+\item Применение параллельных алгоритмов к матрицам различных размеров.
+\item Сравнение результатов последовательного и параллельных алгоритмов.
+\end{enumerate}
+\par Визуализация результатов выполнена с использованием библиотеки OpenCV. На изображениях были протестированы как последовательный, так и параллельные методы.
+\par На основании всех проведенных тестов можно сказать, что все методы работают корректно.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Тестирование последовательного и параллельных методов, а также все вычислительные эксперименты проводились на ПК со следубщими характеристиками:
+\begin{itemize}
+\item Процессор: Intel Сore i5-10210U 1.6 GHz, имеющий 8 потоков
+\item Оперативная память: 8 ГБ
+\item Операционная система: Windows 10 Home x64
+\end{itemize}
+
+\par Усредненные результаты при выполнении 10 экспериментов:
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{| p{5cm} | p{5cm} | p{5cm} |}
+\hline
+Алгоритм & Время работы, в секундах & Разница, в секундах  \\[5pt]
+\hline
+Sequential              & 0.00021       &  \\
+Parallel OpenMP         & 0.00475       & -0.00454 \\
+Parallel TBB            & 0.00339       & -0.00318 \\
+Parallel std::thread    & 0.00291       & -0.00238 \\
+\hline
+\end{tabular}
+\caption{Результаты вычислительных экспериментов с матрицей пикселей 100x100}
+\end{table}
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{| p{5cm} | p{5cm} | p{5cm} |}
+\hline
+Алгоритм & Время работы, в секундах & Разница, в секундах  \\[5pt]
+\hline
+Sequential              & 0.29053       &  \\
+Parallel OpenMP         & 0.12709       & 0.16344 \\
+Parallel TBB            & 0.12632       & 0.16421 \\
+Parallel std::thread    & 0.19876       & 0.09177 \\
+\hline
+\end{tabular}
+\caption{Результаты вычислительных экспериментов с матрицей пикселей 5000x5000}
+\end{table}
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+\par В результате проведенных вычислительных экспериментов можно убедиться в эффективности использования параллельных вычислений, при условии их грамотного расположения.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+\par В ходе выполнения данной работы были изучены новые методы распараллеивания программ, а именно OpenMP, Intel TBB и std::thread. С их помощью были реализованны паралелльные алгоритмы блочной фильтрации Гаусса (ядро 3х3). Также была реализована последовательная версия данного алгоритма.
+\par Тесты и визуализация подтвердили корректность работы методов.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Учебный курс "Введение в методы параллельного
+программирования". Раздел "Параллельное программирование с использованием
+OpenMP"  / сост.: В.П. Гергель - Нижний Новгород, 2007 
+\item Учебный курс «Технологии разработки параллельных программ» Раздел «Создание параллельной программы» Библиотека Intel Threading Building Blocks – краткое описание / сост.: А.А. Сиднев, А.В. Сысоев, И.Б. Мееров - Нижний Новгород, 2007
+\item А.В. Сысоев, И.Б. Мееров, А.А. Сиднев «Средства разработки параллельных программ для систем с общей памятью. Библиотека Intel Threading Building Blocks». Нижний Новгород, 2007, 128 с. 
+\item А.В. Сысоев, И.Б. Мееров, А.Н. Свистунов, А.Л. Курылев, А.В. Сенин, А.В. Шишков, К.В. Корняков, А.А. Сиднев «Параллельное программирование в системах с общей
+памятью. Инструментальная поддержка». Нижний Новгород, 2007, 110 с. 
+\item Е.В. Турлапов «Обработка изображений. Часть 2». URL: \newline \url{http://www.graph.unn.ru/rus/materials/CG/CG04_ImageProcessing2.pdf}
+\item Habr - Электронный ресурс. URL: \newline \url{https://habr.com/ru/post/151157/}
+\item OpenCV - Электронный ресурс. URL: \newline \url{https://docs.opencv.org/}
+
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+\textbf{ Файл gaussian\_block\_filtering.cpp Реализация последовательного алгоритма}
+\begin{lstlisting}
+// Copyright 2022 Myasnikova Varvara
+
+#include "../../../modules/task_1/myasnikova_gaussian_block_filtering/gaussian_block_filtering.h"
+
+std::vector<int> CreateMatrix(int row, int column) {
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::vector<int> vec(row * column);
+
+  for (int i = 0; i < row; ++i) {
+    for (int j = 0; j < column; ++j) {
+      vec[i * column + j] = generator() % 256;
+    }
+  }
+  return vec;
+}
+
+std::vector<int> CreateKernel(double sigma) {
+  double normalization = 0;
+  std::vector<int> kernel(9, 0);
+
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      kernel[i * 3 + j] = exp(-(i * 3. + j) *
+        (i * 3. + j) / (2. * sigma * sigma));
+      normalization += kernel[i * 3 + j];
+    }
+  }
+
+  for (int i = 0; i < 9; i++) {
+    if (normalization != 0) {
+      kernel[i] /= normalization;
+    }
+  }
+
+  return kernel;
+}
+
+std::vector<int> GaussFilterSeq(std::vector<int> matrix,
+  std::vector<int> kernel, int row, int column) {
+  std::vector<int> result(matrix);
+
+  int region[9] = { 0 };
+
+  for (int i = column + 1; i < row * column - column - 1; ++i) {
+    if (i % column != 0 && (i + 1) % column != 0) {
+      region[0] = i - column - 1;
+      region[1] = i - column;
+      region[2] = i - column + 1;
+      region[3] = i - 1;
+      region[4] = i;
+      region[5] = i + 1;
+      region[6] = i + column - 1;
+      region[7] = i + column;
+      region[8] = i + column + 1;
+
+      double sum = 0;
+      for (int j = 0; j < 9; ++j) {
+        sum += static_cast<double>(matrix[region[j]]) * kernel[j];
+      }
+
+      result[i] = static\_cast<int>(sum);
+
+      if (result[i] > 255) {
+        result[i] = 255;
+      }
+      else if (result[i] < 0) {
+        result[i] = 0;
+      }
+    }
+  }
+
+  return result;
+}
+
+\end{lstlisting}
+
+\newpage
+\textbf{ Файл main.cpp для последовательного алгоритма }
+\begin{lstlisting}
+// Copyright 2022 Myasnikova Varvara
+
+#include <gtest/gtest.h>
+#include <vector>
+#include "../../../modules/task_1/myasnikova_gaussian_block_filtering/gaussian_block_filtering.h"
+
+TEST(SeqGaussian, Creating_a_Matrix_small) {
+  int row = 10, column = 10;
+  ASSERT_NO_THROW(CreateMatrix(row, column));
+}
+
+TEST(SeqGaussian, Creating_a_Matrix_big) {
+  int row = 100, column = 100;
+  ASSERT_NO_THROW(CreateMatrix(row, column));
+}
+
+TEST(SeqGaussian, Creating_a_Kernel_1) {
+  ASSERT_NO_THROW(CreateKernel(1));
+}
+
+TEST(SeqGaussian, Creating_a_Kernel_2) {
+  ASSERT_NO_THROW(CreateKernel(5));
+}
+
+TEST(SeqGaussian, Creating_a_Kernel_3) {
+  ASSERT_NO_THROW(CreateKernel(10));
+}
+
+TEST(SeqGaussian, GaussFilterSeq_small) {
+  int row = 10, column = 10;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterSeq(matrix, kernel, row, column));
+}
+
+TEST(SeqGaussian, GaussFilterSeq_big) {
+  int row = 100, column = 100;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterSeq(matrix, kernel, row, column));
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+\newpage
+
+\textbf{ Файл gaussian\_block\_filtering.cpp Реализация параллельного алгоритма с использованием OpenMP}
+\begin{lstlisting}
+// Copyright 2022 Myasnikova Varvara
+
+#include <omp.h>
+#include "../../../modules/task_2/myasnikova_gaussian_block_filtering/gaussian_block_filtering.h"
+
+std::vector<int> CreateMatrix(int row, int column) {
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::vector<int> vec(row * column);
+
+  for (int i = 0; i < row; ++i) {
+    for (int j = 0; j < column; ++j) {
+      vec[i * column + j] = generator() % 256;
+    }
+  }
+  return vec;
+}
+
+std::vector<int> CreateKernel(double sigma) {
+  double normalization = 0;
+  std::vector<int> kernel(9, 0);
+
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      kernel[i * 3 + j] = exp(-(i * 3. + j) *
+        (i * 3. + j) / (2. * sigma * sigma));
+      normalization += kernel[i * 3 + j];
+    }
+  }
+
+  for (int i = 0; i < 9; i++) {
+    if (normalization != 0) {
+      kernel[i] /= normalization;
+    }
+  }
+
+  return kernel;
+}
+
+std::vector<int> GaussFilterSeq(std::vector<int> matrix,
+  std::vector<int> kernel, int row, int column) {
+  std::vector<int> result(matrix);
+  int region[9] = { 0 };
+
+  for (int i = column + 1; i < row * column - column - 1; ++i) {
+    if (i % column != 0 && (i + 1) % column != 0) {
+      region[0] = i - column - 1;
+      region[1] = i - column;
+      region[2] = i - column + 1;
+      region[3] = i - 1;
+      region[4] = i;
+      region[5] = i + 1;
+      region[6] = i + column - 1;
+      region[7] = i + column;
+      region[8] = i + column + 1;
+
+      double sum = 0;
+      for (int j = 0; j < 9; ++j) {
+        sum += static_cast<double>(matrix[region[j]]) * kernel[j];
+      }
+
+      result[i] = static_cast<int>(sum);
+
+      if (result[i] > 255) {
+        result[i] = 255;
+      }
+      else if (result[i] < 0) {
+        result[i] = 0;
+      }
+    }
+  }
+
+  return result;
+}
+
+std::vector<int> GaussFilterParallel(std::vector<int> matrix,
+  std::vector<int> kernel, int row, int column) {
+  std::vector<int> result(matrix);
+
+#pragma omp parallel
+  {
+    int region[9] = { 0 };
+#pragma omp for
+    for (int i = column + 1; i < row * column - column - 1; ++i) {
+      if (i % column != 0 && (i + 1) % column != 0) {
+        region[0] = i - column - 1;
+        region[1] = i - column;
+        region[2] = i - column + 1;
+        region[3] = i - 1;
+        region[4] = i;
+        region[5] = i + 1;
+        region[6] = i + column - 1;
+        region[7] = i + column;
+        region[8] = i + column + 1;
+
+        double sum = 0;
+        for (int j = 0; j < 9; ++j) {
+          sum += static_cast<double>(matrix[region[j]]) * kernel[j];
+        }
+
+        result[i] = static_cast<int>(sum);
+
+        if (result[i] > 255) {
+          result[i] = 255;
+        }
+        else if (result[i] < 0) {
+          result[i] = 0;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+\end{lstlisting}
+
+\newpage
+\textbf{ Файл main.cpp для праллельного алгоритма с использованием OpenMP }
+\begin{lstlisting}
+// Copyright 2022 Myasnikova Varvara
+
+#include <gtest/gtest.h>
+#include <vector>
+#include <omp.h>
+#include "../../../modules/task_2/myasnikova_gaussian_block_filtering/gaussian_block_filtering.h"
+
+TEST(SeqGaussian, Creating_a_Matrix_small) {
+  int row = 10, column = 10;
+  ASSERT_NO_THROW(CreateMatrix(row, column));
+}
+
+TEST(SeqGaussian, Creating_a_Matrix_big) {
+  int row = 100, column = 100;
+  ASSERT_NO_THROW(CreateMatrix(row, column));
+}
+
+TEST(SeqGaussian, Creating_a_Kernel_1) {
+  ASSERT_NO_THROW(CreateKernel(1));
+}
+
+TEST(SeqGaussian, Creating_a_Kernel_2) {
+  ASSERT_NO_THROW(CreateKernel(5));
+}
+
+TEST(SeqGaussian, Creating_a_Kernel_3) {
+  ASSERT_NO_THROW(CreateKernel(10));
+}
+
+TEST(SeqGaussian, GaussFilterSeq) {
+  int row = 10, column = 10;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterSeq(matrix, kernel, row, column));
+}
+
+TEST(SeqGaussian, GaussFilterParallel) {
+  int row = 10, column = 10;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterParallel(matrix, kernel, row, column));
+}
+
+TEST(SeqGaussian, GaussFilterParallelAndSeq1) {
+  int row = 1000, column = 1000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  double t1_seq = omp_get_wtime();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  double t2_seq = omp_get_wtime();
+
+  double t1_omp = omp_get_wtime();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  double t2_omp = omp_get_wtime();
+
+  std::cout << "1000 x 1000" << "\n";
+  std::cout << "     Seq: " << t2_seq - t1_seq << "\n";
+  std::cout << "Parallel: " << t2_omp - t1_omp << "\n";
+  ASSERT_EQ(seq_res, parallel_res);
+}
+
+TEST(SeqGaussian, GaussFilterParallelAndSeq2) {
+  int row = 3000, column = 3000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+
+  double t1_seq = omp_get_wtime();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  double t2_seq = omp_get_wtime();
+
+  double t1_omp = omp_get_wtime();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  double t2_omp = omp_get_wtime();
+
+  std::cout << "3000 x 3000" << "\n";
+  std::cout << "     Seq: " << t2_seq - t1_seq << "\n";
+  std::cout << "Parallel: " << t2_omp - t1_omp << "\n";
+  ASSERT_EQ(seq_res, parallel_res);
+}
+
+TEST(SeqGaussian, GaussFilterParallelAndSeq3) {
+  int row = 7000, column = 7000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  double t1_seq = omp_get_wtime();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  double t2_seq = omp_get_wtime();
+
+  double t1_omp = omp_get_wtime();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  double t2_omp = omp_get_wtime();
+
+  std::cout << "7000 x 7000" << "\n";
+  std::cout << "     Seq: " << t2_seq - t1_seq << "\n";
+  std::cout << "Parallel: " << t2_omp - t1_omp << "\n";
+  ASSERT_EQ(seq_res, parallel_res);
+}
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\newpage
+\textbf{ Файл gaussian\_block\_filtering.cpp Реализация параллельного алгоритма с использованием Intel TBB}
+\begin{lstlisting}
+// Copyright 2022 Myasnikova Varvara
+
+#include <tbb/tbb.h>
+#include "../../../modules/task_3/myasnikova_gaussian_block_filtering/gaussian_block_filtering.h"
+
+std::vector<int> CreateMatrix(int row, int column) {
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::vector<int> vec(row * column);
+
+  for (int i = 0; i < row; ++i) {
+    for (int j = 0; j < column; ++j) {
+      vec[i * column + j] = generator() % 256;
+    }
+  }
+  return vec;
+}
+
+std::vector<int> CreateKernel(double sigma) {
+  double normalization = 0;
+  std::vector<int> kernel(9, 0);
+
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      kernel[i * 3 + j] = exp(-(i * 3. + j) *
+        (i * 3. + j) / (2. * sigma * sigma));
+      normalization += kernel[i * 3 + j];
+    }
+  }
+
+  for (int i = 0; i < 9; i++) {
+    if (normalization != 0) {
+      kernel[i] /= normalization;
+    }
+  }
+
+  return kernel;
+}
+
+std::vector<int> GaussFilterSeq(std::vector<int> matrix,
+  std::vector<int> kernel, int row, int column) {
+  std::vector<int> result(matrix);
+  int region[9] = { 0 };
+
+  for (int i = column + 1; i < row * column - column - 1; ++i) {
+    if (i % column != 0 && (i + 1) % column != 0) {
+      region[0] = i - column - 1;
+      region[1] = i - column;
+      region[2] = i - column + 1;
+      region[3] = i - 1;
+      region[4] = i;
+      region[5] = i + 1;
+      region[6] = i + column - 1;
+      region[7] = i + column;
+      region[8] = i + column + 1;
+
+      double sum = 0;
+      for (int j = 0; j < 9; ++j) {
+        sum += static_cast<double>(matrix[region[j]]) * kernel[j];
+      }
+
+      result[i] = static_cast<int>(sum);
+
+      if (result[i] > 255) {
+        result[i] = 255;
+      }
+      else if (result[i] < 0) {
+        result[i] = 0;
+      }
+    }
+  }
+
+  return result;
+}
+
+std::vector<int> GaussFilterParallel(std::vector<int> matrix,
+  std::vector<int> kernel, int row, int column) {
+  std::vector<int> result(matrix);
+
+  tbb::parallel_for(tbb::blocked_range<int>(column + 1,
+    row * column - column - 1, 1), [&](const tbb::blocked_range<int>& rg) {
+      int region[9] = { 0 };
+      for (int i = rg.begin(); i < rg.end(); i++) {
+        if (i % column != 0 && (i + 1) % column != 0) {
+          region[0] = i - column - 1;
+          region[1] = i - column;
+          region[2] = i - column + 1;
+          region[3] = i - 1;
+          region[4] = i;
+          region[5] = i + 1;
+          region[6] = i + column - 1;
+          region[7] = i + column;
+          region[8] = i + column + 1;
+
+          double sum = 0;
+          for (int j = 0; j < 9; ++j) {
+            sum += static_cast<double>(matrix[region[j]]) * kernel[j];
+          }
+
+          result[i] = static_cast<int>(sum);
+
+          if (result[i] > 255) {
+            result[i] = 255;
+          }
+          else if (result[i] < 0) {
+            result[i] = 0;
+          }
+        }
+      }
+    });
+
+  return result;
+}
+\end{lstlisting}
+\newpage
+\textbf{ Файл main.cpp для праллельного алгоритма с использованием Intel TBB }
+\begin{lstlisting}
+// Copyright 2022 Myasnikova Varvara
+
+#include <gtest/gtest.h>
+#include <vector>
+#include <tbb/tbb.h>
+#include "../../../modules/task_3/myasnikova_gaussian_block_filtering/gaussian_block_filtering.h"
+
+TEST(TBBGaussian, Creating_a_Matrix_small) {
+  int row = 10, column = 10;
+  ASSERT_NO_THROW(CreateMatrix(row, column));
+}
+
+TEST(TBBGaussian, Creating_a_Matrix_big) {
+  int row = 100, column = 100;
+  ASSERT_NO_THROW(CreateMatrix(row, column));
+}
+
+TEST(TBBGaussian, Creating_a_Kernel_1) {
+  ASSERT_NO_THROW(CreateKernel(1));
+}
+
+TEST(TBBGaussian, Creating_a_Kernel_2) {
+  ASSERT_NO_THROW(CreateKernel(5));
+}
+
+TEST(TBBGaussian, Creating_a_Kernel_3) {
+  ASSERT_NO_THROW(CreateKernel(10));
+}
+
+TEST(TBBGaussian, GaussFilterSeq) {
+  int row = 10, column = 10;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterSeq(matrix, kernel, row, column));
+}
+
+TEST(TBBGaussian, GaussFilterParallel) {
+  int row = 10, column = 10;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterParallel(matrix, kernel, row, column));
+}
+
+TEST(TBBGaussian, GaussFilterParallelAndSeq1) {
+  int row = 1000, column = 1000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+
+  tbb::tick_count t1_seq = tbb::tick_count::now();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  tbb::tick_count t2_seq = tbb::tick_count::now();
+
+  tbb::tick_count t1_tbb = tbb::tick_count::now();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  tbb::tick_count t2_tbb = tbb::tick_count::now();
+
+  std::cout << "1000 x 1000\n";
+  std::cout << "     Seq: " << (t2_seq - t1_seq).seconds() << "\n";
+  std::cout << "Parallel: " << (t2_tbb - t1_tbb).seconds() << "\n";
+  ASSERT_EQ(seq_res, parallel_res);
+}
+
+TEST(TBBGaussian, GaussFilterParallelAndSeq2) {
+  int row = 3000, column = 3000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  tbb::tick_count t1_seq = tbb::tick_count::now();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  tbb::tick_count t2_seq = tbb::tick_count::now();
+  tbb::tick_count t1_tbb = tbb::tick_count::now();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  tbb::tick_count t2_tbb = tbb::tick_count::now();
+
+  std::cout << "3000 x 3000\n";
+  std::cout << "     Seq: " << (t2_seq - t1_seq).seconds() << "\n";
+  std::cout << "Parallel: " << (t2_tbb - t1_tbb).seconds() << "\n";
+  ASSERT_EQ(seq_res, parallel_res);
+}
+
+TEST(TBBGaussian, GaussFilterParallelAndSeq3) {
+  int row = 7000, column = 7000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  tbb::tick_count t1_seq = tbb::tick_count::now();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  tbb::tick_count t2_seq = tbb::tick_count::now();
+  tbb::tick_count t1_tbb = tbb::tick_count::now();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  tbb::tick_count t2_tbb = tbb::tick_count::now();
+
+  std::cout << "7000 x 7000\n";
+  std::cout << "     Seq: " << (t2_seq - t1_seq).seconds() << "\n";
+  std::cout << "Parallel: " << (t2_tbb - t1_tbb).seconds() << "\n";
+  ASSERT_EQ(seq_res, parallel_res);
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\newpage
+\textbf{ Файл gaussian\_block\_filtering.cpp Реализация параллельного алгоритма с использованием std::thread}
+\begin{lstlisting}
+// Copyright 2022 Myasnikova Varvara
+
+#include "../../../3rdparty/unapproved/unapproved.h"
+#include "../../../modules/task_4/myasnikova_gaussian_block_filtering/gaussian_block_filtering.h"
+
+std::vector<int> CreateMatrix(int row, int column) {
+  std::random_device rd;
+  std::mt19937 generator(rd());
+  std::vector<int> vec(row * column);
+
+  for (int i = 0; i < row; ++i) {
+    for (int j = 0; j < column; ++j) {
+      vec[i * column + j] = generator() % 256;
+    }
+  }
+  return vec;
+}
+
+std::vector<int> CreateKernel(double sigma) {
+  double normalization = 0;
+  std::vector<int> kernel(9, 0);
+
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      kernel[i * 3 + j] = exp(-(i * 3. + j) *
+        (i * 3. + j) / (2. * sigma * sigma));
+      normalization += kernel[i * 3 + j];
+    }
+  }
+
+  for (int i = 0; i < 9; i++) {
+    if (normalization != 0) {
+      kernel[i] /= normalization;
+    }
+  }
+
+  return kernel;
+}
+
+std::vector<int> GaussFilterSeq(std::vector<int> matrix,
+  std::vector<int> kernel, int row, int column) {
+  std::vector<int> result(matrix);
+  int region[9] = { 0 };
+
+  for (int i = column + 1; i < row * column - column - 1; ++i) {
+    if (i % column != 0 && (i + 1) % column != 0) {
+      region[0] = i - column - 1;
+      region[1] = i - column;
+      region[2] = i - column + 1;
+      region[3] = i - 1;
+      region[4] = i;
+      region[5] = i + 1;
+      region[6] = i + column - 1;
+      region[7] = i + column;
+      region[8] = i + column + 1;
+
+      double sum = 0;
+      for (int j = 0; j < 9; ++j) {
+        sum += static_cast<double>(matrix[region[j]]) * kernel[j];
+      }
+
+      result[i] = static_cast<int>(sum);
+
+      if (result[i] > 255) {
+        result[i] = 255;
+      } else if (result[i] < 0) {
+        result[i] = 0;
+      }
+    }
+  }
+
+  return result;
+}
+
+std::vector<int> GaussFilterParallel(std::vector<int> matrix,
+  std::vector<int> kernel, int row, int column) {
+  std::vector<int> result(matrix);
+
+  const int count_thread = std::thread::hardware_concurrency();
+  std::thread* ths = new std::thread[count_thread];
+
+  int thread_elements = row / count_thread;
+  int ost = row % count_thread;
+
+  int start_index, end_index = column + 1;
+
+  for (int k = 0; k < count_thread; k++) {
+    start_index = end_index;
+    end_index += (column * thread_elements);
+
+    if (ost > 0) {
+      end_index++;
+      ost--;
+    }
+
+    if (k == count_thread - 1) {
+      end_index = row * column - column - 1;
+    }
+
+    ths[k] = std::thread([&](int begin, int end) {
+      int region[9] = { 0 };
+      for (int i = begin; i < end; ++i) {
+        if (i % column != 0 && (i + 1) % column != 0) {
+          region[0] = i - column - 1;
+          region[1] = i - column;
+          region[2] = i - column + 1;
+          region[3] = i - 1;
+          region[4] = i;
+          region[5] = i + 1;
+          region[6] = i + column - 1;
+          region[7] = i + column;
+          region[8] = i + column + 1;
+
+          double sum = 0;
+          for (int j = 0; j < 9; ++j) {
+            sum += static_cast<double>(matrix[region[j]]) * kernel[j];
+          }
+          result[i] = static_cast<int>(sum);
+          if (result[i] > 255) {
+            result[i] = 255;
+          } else if (result[i] < 0) {
+            result[i] = 0;
+          }
+        }
+      }
+      }, start_index, end_index);
+  }
+
+  for (int i = 0; i < count_thread; i++) {
+    ths[i].join();
+  }
+
+  delete[] ths;
+  return result;
+}
+
+\end{lstlisting}
+
+\newpage
+\textbf{ Файл main.cpp для праллельного алгоритма с использованием Intel TBB }
+\begin{lstlisting}
+// Copyright 2022 Myasnikova Varvara
+
+#include <gtest/gtest.h>
+#include <vector>
+#include "../../../modules/task_4/myasnikova_gaussian_block_filtering/gaussian_block_filtering.h"
+
+TEST(STDGaussian, Creating_a_Matrix_small) {
+  int row = 10, column = 10;
+  ASSERT_NO_THROW(CreateMatrix(row, column));
+}
+
+TEST(STDGaussian, Creating_a_Matrix_big) {
+  int row = 100, column = 100;
+  ASSERT_NO_THROW(CreateMatrix(row, column));
+}
+
+TEST(STDGaussian, Creating_a_Kernel_1) {
+  ASSERT_NO_THROW(CreateKernel(1));
+}
+
+TEST(STDGaussian, Creating_a_Kernel_2) {
+  ASSERT_NO_THROW(CreateKernel(5));
+}
+
+TEST(STDGaussian, Creating_a_Kernel_3) {
+  ASSERT_NO_THROW(CreateKernel(10));
+}
+
+TEST(STDGaussian, GaussFilterSeq) {
+  int row = 10, column = 10;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterSeq(matrix, kernel, row, column));
+}
+
+TEST(STDGaussian, GaussFilterParallel) {
+  int row = 10, column = 10;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterParallel(matrix, kernel, row, column));
+}
+
+TEST(STDGaussian, GaussFilterParallel2) {
+  int row = 100, column = 100;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+  ASSERT_NO_THROW(GaussFilterParallel(matrix, kernel, row, column));
+}
+
+TEST(STDGaussian, GaussFilterParallelAndSeq1) {
+  int row = 3000, column = 3000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+
+  double seq_time_start = clock();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  double seq_time_end = clock();
+
+  double std_time_start = clock();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  double std_time_end = clock();
+
+  std::cout << "3000 x 3000\n";
+  std::cout << "SQ TIME: " << static_cast<double>(seq_time_end - seq_time_start) / CLOCKS_PER_SEC << std::endl;
+  std::cout << "PP TIME: " << static_cast<double>(std_time_end - std_time_start) / CLOCKS_PER_SEC << std::endl;
+  ASSERT_EQ(seq_res, parallel_res);
+}
+
+TEST(STDGaussian, GaussFilterParallelAndSeq2) {
+  int row = 6000, column = 6000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+
+  double t1_seq = clock();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  double t2_seq = clock();
+
+  double t1_pp = clock();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  double t2_pp = clock();
+
+  std::cout << "6000 x 6000\n";
+  std::cout << "SQ TIME: " << static_cast<double>(t2_seq - t1_seq) / CLOCKS_PER_SEC << std::endl;
+  std::cout << "PP TIME: " << static_cast<double>(t2_pp - t1_pp) / CLOCKS_PER_SEC << std::endl;
+  ASSERT_EQ(seq_res, parallel_res);
+}
+
+TEST(STDGaussian, GaussFilterParallelAndSeq3) {
+  int row = 8000, column = 8000;
+  std::vector<int> matrix = CreateMatrix(row, column);
+  std::vector<int> kernel = CreateKernel(5);
+
+  double t1_seq = clock();
+  std::vector<int> seq_res = GaussFilterSeq(matrix, kernel, row, column);
+  double t2_seq = clock();
+
+  double t1_pp = clock();
+  std::vector<int> parallel_res =
+    GaussFilterParallel(matrix, kernel, row, column);
+  double t2_pp = clock();
+
+  std::cout << "8000 x 8000\n";
+  std::cout << "SQ TIME: " << static_cast<double>(t2_seq - t1_seq) / CLOCKS_PER_SEC << std::endl;
+  std::cout << "PP TIME: " << static_cast<double>(t2_pp - t1_pp) / CLOCKS_PER_SEC << std::endl;
+  ASSERT_EQ(seq_res, parallel_res);
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+\end{document}
